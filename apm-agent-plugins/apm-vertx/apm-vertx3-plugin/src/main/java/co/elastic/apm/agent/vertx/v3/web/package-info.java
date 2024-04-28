@@ -16,7 +16,3 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-@NonnullApi
-package co.elastic.apm.agent.vertx.v3.web;
-
-import co.elastic.apm.agent.sdk.NonnullApi;

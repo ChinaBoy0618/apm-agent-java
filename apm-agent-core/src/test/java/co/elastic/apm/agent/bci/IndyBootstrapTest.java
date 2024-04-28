@@ -30,6 +30,7 @@ class IndyBootstrapTest extends AbstractInstrumentationTest {
         Module javaBaseModule = Class.class.getModule();
         assertThat(IndyBootstrapTest.class.getModule()).isNotEqualTo(javaBaseModule);
 
+
         IndyBootstrap.setJavaBaseModule(IndyBootstrapTest.class);
         assertThat(IndyBootstrapTest.class.getModule()).isEqualTo(javaBaseModule);
     }

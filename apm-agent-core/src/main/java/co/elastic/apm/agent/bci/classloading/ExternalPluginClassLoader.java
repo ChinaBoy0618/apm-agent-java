@@ -50,6 +50,7 @@ public class ExternalPluginClassLoader extends URLClassLoader {
         super(new URL[]{pluginJar.toURI().toURL()}, createFilteringClassLoader(parent));
         this.pluginJar = pluginJar;
         classNames = Collections.unmodifiableList(scanForClasses(pluginJar));
+        //apm-agent-plugin-sdk 的scope 要设置为provided，目标容器已经包含 sdk 的依赖
         if (classNames.contains(ElasticApmInstrumentation.class.getName())) {
             throw new IllegalStateException(String.format("The plugin %s contains the plugin SDK. Please make sure the " +
                 "scope for the dependency apm-agent-plugin-sdk is set to provided.", pluginJar.getName()));
@@ -62,6 +63,12 @@ public class ExternalPluginClassLoader extends URLClassLoader {
         return new DiscriminatingMultiParentClassLoader(parent, not(startsWith("io.opentelemetry.")));
     }
 
+    /**
+     * 扫描所有的类文件（排除所有agent本身的依赖）
+     * @param pluginJar
+     * @return 类名称
+     * @throws IOException
+     */
     private List<String> scanForClasses(File pluginJar) throws IOException {
         List<String> tempClassNames = new ArrayList<>();
         try (JarFile jarFile = new JarFile(pluginJar)) {

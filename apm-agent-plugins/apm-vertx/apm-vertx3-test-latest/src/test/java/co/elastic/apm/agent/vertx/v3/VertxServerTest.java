@@ -16,28 +16,3 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package co.elastic.apm.agent.vertx.v3;
-
-import co.elastic.apm.agent.vertx.helper.CommonVertxWebTest;
-import io.vertx.core.Handler;
-import io.vertx.ext.web.RoutingContext;
-import io.vertx.junit5.VertxExtension;
-import org.junit.jupiter.api.extension.ExtendWith;
-
-@ExtendWith(VertxExtension.class)
-public class VertxServerTest extends CommonVertxWebTest {
-
-    protected Handler<RoutingContext> getDefaultHandlerImpl() {
-        return routingContext -> routingContext.response().end(DEFAULT_RESPONSE_BODY);
-    }
-
-    @Override
-    protected boolean useSSL() {
-        return false;
-    }
-
-    @Override
-    protected int getMajorVersion() {
-        return 3;
-    }
-}

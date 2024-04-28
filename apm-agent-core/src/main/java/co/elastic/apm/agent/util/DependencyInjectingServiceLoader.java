@@ -40,6 +40,10 @@ import java.util.List;
 import java.util.ServiceConfigurationError;
 import java.util.Set;
 
+/**
+ * 获取所有的包依赖（根据META-INF/services/）
+ * @param <T>
+ */
 public class DependencyInjectingServiceLoader<T> {
 
     private static final Logger logger = LoggerFactory.getLogger(DependencyInjectingServiceLoader.class);
@@ -51,6 +55,7 @@ public class DependencyInjectingServiceLoader<T> {
     private final Set<URL> resourcePathCache;
 
     private DependencyInjectingServiceLoader(Class<T> clazz, Object... constructorArguments) {
+        //singletonList 返回不可变列表，只包含一个元素
         this(clazz, Collections.singletonList(PrivilegedActionUtils.getClassLoader(clazz)), constructorArguments);
     }
 
@@ -82,6 +87,13 @@ public class DependencyInjectingServiceLoader<T> {
         }
     }
 
+    /**
+     * 获取指定类型的所有依赖（根据META-INF/services/）
+     * @param clazz
+     * @param constructorArguments
+     * @param <T>
+     * @return
+     */
     public static <T> List<T> load(Class<T> clazz, Object... constructorArguments) {
         return new DependencyInjectingServiceLoader<>(clazz, constructorArguments).instances;
     }

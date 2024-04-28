@@ -16,35 +16,3 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package co.elastic.apm.agent.vertx.v3;
-
-import co.elastic.apm.agent.vertx.helper.CommonVertxWebTest;
-import io.vertx.core.Handler;
-import io.vertx.ext.web.RoutingContext;
-import okhttp3.Response;
-import org.junit.jupiter.api.Test;
-
-
-public class VertxServerTest extends CommonVertxWebTest {
-
-    @Test
-    void testWrongMethod() throws Exception {
-        Response response = http().get("/post");
-        expectTransaction(response, "/post", NOT_FOUND_RESPONSE_BODY, "GET unknown route", 404);
-    }
-
-    @Override
-    protected Handler<RoutingContext> getDefaultHandlerImpl() {
-        return routingContext -> routingContext.response().end(DEFAULT_RESPONSE_BODY);
-    }
-
-    @Override
-    protected boolean useSSL() {
-        return false;
-    }
-
-    @Override
-    protected int getMajorVersion() {
-        return 3;
-    }
-}

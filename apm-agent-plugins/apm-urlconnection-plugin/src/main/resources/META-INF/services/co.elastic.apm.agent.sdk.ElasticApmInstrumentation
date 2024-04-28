@@ -1,3 +1,0 @@
-co.elastic.apm.agent.urlconnection.HttpUrlConnectionInstrumentation$CreateSpanInstrumentation
-co.elastic.apm.agent.urlconnection.HttpUrlConnectionInstrumentation$DisconnectInstrumentation
-co.elastic.apm.agent.urlconnection.SSLContextInstrumentation

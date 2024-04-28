@@ -240,6 +240,7 @@ public class IndyBootstrap {
         }
     }
 
+
     public static void setFallbackLogExecutor(Executor executor) {
         fallbackLogExecutor = executor;
     }
@@ -439,12 +440,15 @@ public class IndyBootstrap {
             String instrumentedMethodName = (String) args[3];
             MethodHandle instrumentedMethod = args.length >= 5 ? (MethodHandle) args[4] : null;
 
+            //agent初始化时的classloader
             ClassLoader instrumentationClassLoader = ElasticApmAgent.getInstrumentationClassLoader(adviceClassName);
+            //插桩的目标类的ClassLoader
             ClassLoader targetClassLoader = lookup.lookupClass().getClassLoader();
             ClassFileLocator classFileLocator;
             List<String> pluginClasses = new ArrayList<>();
             Map<String, List<String>> requiredModuleOpens = Collections.emptyMap();
             boolean allowOtelLookupFromParent;
+            //如果是初始化时扩展插件的CL
             if (instrumentationClassLoader instanceof ExternalPluginClassLoader) {
                 allowOtelLookupFromParent = true;
                 List<String> externalPluginClasses = ((ExternalPluginClassLoader) instrumentationClassLoader).getClassNames();
@@ -453,6 +457,7 @@ public class IndyBootstrap {
                         !(externalPluginClass.startsWith("co.elastic.apm.api")) &&
                         !(externalPluginClass.startsWith("co.elastic.apm.opentracing"))
                     ) {
+                        //放入插件要加载的类名list
                         pluginClasses.add(externalPluginClass);
                     }
                 }
@@ -460,11 +465,12 @@ public class IndyBootstrap {
                 if (agentJarFile == null) {
                     throw new IllegalStateException("External plugin cannot be applied - can't find agent jar");
                 }
+                //创建 ClassFileLocator
                 classFileLocator = new ClassFileLocator.Compound(
                     ClassFileLocator.ForClassLoader.of(instrumentationClassLoader),
                     ClassFileLocator.ForJarFile.of(agentJarFile)
                 );
-            } else {
+            } else {//否则为agent自己的类
                 allowOtelLookupFromParent = false;
                 String pluginPackage = PluginClassLoaderRootPackageCustomizer.getPluginPackageFromClassName(adviceClassName);
                 pluginClasses.addAll(getClassNamesFromBundledPlugin(pluginPackage, instrumentationClassLoader));
@@ -484,6 +490,7 @@ public class IndyBootstrap {
                     // tracer.getConfig(Config.class) would return null when called from an advice as the classes are not the same
                     .or(nameContains("Config").and(hasSuperType(is(ConfigurationOptionProvider.class)))),
                 allowOtelLookupFromParent);
+            //如果java版本大于9
             if (ElasticApmAgent.areModulesSupported() && !requiredModuleOpens.isEmpty()) {
                 boolean success = addRequiredModuleOpens(requiredModuleOpens, targetClassLoader, pluginClassLoader);
                 if (!success) {
@@ -534,6 +541,14 @@ public class IndyBootstrap {
         return true;
     }
 
+    /**
+     * 获取所有的插件类名
+     * @param pluginPackage plugin包名
+     * @param adviceClassLoader advice CL
+     * @return 插件类型集合
+     * @throws IOException
+     * @throws URISyntaxException
+     */
     private static List<String> getClassNamesFromBundledPlugin(String pluginPackage, ClassLoader adviceClassLoader) throws IOException, URISyntaxException {
         List<String> pluginClasses = classesByPackage.get(pluginPackage);
         if (pluginClasses == null) {

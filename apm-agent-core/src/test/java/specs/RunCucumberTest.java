@@ -20,9 +20,16 @@ package specs;
 
 import io.cucumber.junit.CucumberOptions;
 import io.cucumber.junit.Cucumber;
+import net.bytebuddy.dynamic.DynamicType;
 import org.junit.runner.RunWith;
 
 @RunWith(Cucumber.class)
 @CucumberOptions(strict = true, plugin = {"pretty"}, tags = "not @grpc and not @opentelemetry-bridge")
 public class RunCucumberTest {
+
+    public void run(){
+//        DynamicType.Unloaded
+
+//        DynamicType.Builder builder=
+    }
 }

@@ -183,15 +183,25 @@ public class ElasticApmAgent {
     @Nonnull
     private static Iterable<ElasticApmInstrumentation> loadInstrumentations(Tracer tracer) {
         List<ClassLoader> pluginClassLoaders = new ArrayList<>();
+        //存放Agent的CL（CL可能为Ext/PlatformCL）
         pluginClassLoaders.add(PrivilegedActionUtils.getClassLoader(ElasticApmAgent.class));
+        //加载所有的扩展插件
         pluginClassLoaders.addAll(createExternalPluginClassLoaders(tracer.getConfig(CoreConfiguration.class).getPluginsDir()));
+        //加载所有 ElasticApmInstrumentation 实现子类，
         final List<ElasticApmInstrumentation> instrumentations = DependencyInjectingServiceLoader.load(ElasticApmInstrumentation.class, pluginClassLoaders, tracer);
+        //从配置当中读取所有的matcher method，生成 TraceMethodInstrumentation 扩展
         for (MethodMatcher traceMethod : tracer.getConfig(CoreConfiguration.class).getTraceMethods()) {
             instrumentations.add(new TraceMethodInstrumentation(tracer, traceMethod));
         }
         return instrumentations;
     }
 
+    /**
+     * 从指定目录加载所有的插件，并创建对应的 ExternalPluginClassLoader
+     *
+     * @param pluginsDirString
+     * @return ExternalPluginClassLoader的List集合
+     */
     private static Collection<? extends ClassLoader> createExternalPluginClassLoaders(@Nullable String pluginsDirString) {
         final Logger logger = LoggerFactory.getLogger(ElasticApmAgent.class);
         if (pluginsDirString == null) {
@@ -238,6 +248,7 @@ public class ElasticApmAgent {
         if (!coreConfig.isEnabled()) {
             return;
         }
+        //是否加载java1.4之前的字节码
         ancientBytecodeInstrumentationEnabled = coreConfig.isInstrumentAncientBytecode();
         String bytecodeDumpPath = coreConfig.getBytecodeDumpPath();
         if (bytecodeDumpPath != null) {
@@ -254,9 +265,12 @@ public class ElasticApmAgent {
                 }
             }
         }
+        // 如果不需要通过默认pluginCL进行加载，则需要实现 PluginClassLoaderRootPackageCustomizer 类提供CL。这里是通过 PluginClassLoaderRootPackageCustomizer
+        // 的实现类进行整个插件依赖的注册
         final List<PluginClassLoaderRootPackageCustomizer> rootPackageCustomizers = DependencyInjectingServiceLoader.load(
             PluginClassLoaderRootPackageCustomizer.class,
             getAgentClassLoader());
+
         for (PluginClassLoaderRootPackageCustomizer rootPackageCustomizer : rootPackageCustomizers) {
             PluginClassLoaderCustomizations customizations = new PluginClassLoaderCustomizations(
                 rootPackageCustomizer.pluginClassLoaderRootPackages(),
@@ -271,11 +285,13 @@ public class ElasticApmAgent {
                     + rootPackageCustomizer.getPluginPackage());
             }
         }
+
         for (ElasticApmInstrumentation apmInstrumentation : instrumentations) {
             mapInstrumentationCL2adviceClassName(
                 apmInstrumentation.getAdviceClassName(),
                 PrivilegedActionUtils.getClassLoader(apmInstrumentation.getClass()));
         }
+        //注册钩子函数，如果进行注销进行资源销毁
         Runtime.getRuntime().addShutdownHook(new Thread(ThreadUtils.addElasticApmThreadPrefix("init-instrumentation-shutdown-hook")) {
             @Override
             public void run() {
@@ -298,6 +314,7 @@ public class ElasticApmAgent {
         }
 
         resettableClassFileTransformer = agentBuilder.installOn(ElasticApmAgent.instrumentation);
+        //如果支持的插桩配置扩展有变更，进行重新插桩
         for (ConfigurationOption<?> instrumentationOption : coreConfig.getInstrumentationOptions()) {
             //noinspection Convert2Lambda
             instrumentationOption.addChangeListener(new ConfigurationOption.ChangeListener() {
@@ -352,13 +369,16 @@ public class ElasticApmAgent {
                                                  AgentBuilder.DescriptionStrategy descriptionStrategy, boolean premain) {
         final CoreConfiguration coreConfiguration = tracer.getConfig(CoreConfiguration.class);
         ElasticApmAgent.instrumentation = instrumentation;
+        //声明 ByteBuddy
         final ByteBuddy byteBuddy = new ByteBuddy()
             .with(TypeValidation.of(logger.isDebugEnabled()))
             .with(FailSafeDeclaredMethodsCompiler.INSTANCE);
+        //创建 AgentBuilder
         AgentBuilder agentBuilder = getAgentBuilder(
             byteBuddy, coreConfiguration, logger, descriptionStrategy, premain, coreConfiguration.isTypePoolCacheEnabled()
         );
         int numberOfAdvices = 0;
+        //
         for (final ElasticApmInstrumentation advice : instrumentations) {
             if (isIncluded(advice, coreConfiguration)) {
                 instrumentationStats.addInstrumentation(advice);
@@ -378,10 +398,22 @@ public class ElasticApmAgent {
         return agentBuilder;
     }
 
+    /**
+     * 必须全局 InstrumentationEnabled 开启，并且符合 {@link  ElasticApmAgent#isInstrumentationEnabled}条件的才会进行插桩
+     * @param advice 插桩的 advice
+     * @param coreConfiguration 核心配置类
+     * @return  boolean 是否要进行插桩
+     */
     private static boolean isIncluded(ElasticApmInstrumentation advice, CoreConfiguration coreConfiguration) {
         return isInstrumentationEnabled(advice, coreConfiguration) && coreConfiguration.isInstrumentationEnabled(advice.getInstrumentationGroupNames());
     }
 
+    /**
+     * 当全局 coreConfiguration 的Instrument 配置为 false的时候，只有开启了 includeWhenInstrumentationIsDisabled 为true的插件会被插桩
+     * @param advice 插桩的 advice
+     * @param coreConfiguration 核心配置类
+     * @return  boolean 是否要进行插桩
+     */
     private static boolean isInstrumentationEnabled(ElasticApmInstrumentation advice, CoreConfiguration coreConfiguration) {
         return advice.includeWhenInstrumentationIsDisabled() || coreConfiguration.isInstrument();
     }
@@ -440,8 +472,10 @@ public class ElasticApmAgent {
             }
         };
         return agentBuilder
+            //要匹配的类型
             .type(instrumentationStats.shouldMeasureMatching() ? statsCollectingMatcher : matcher)
             .transform(new PatchBytecodeVersionTo51Transformer())
+            //添加bootstrap构建的transform
             .transform(getTransformer(instrumentation, logger, methodMatcher))
             .transform(new AgentBuilder.Transformer() {
                 @Override
@@ -469,6 +503,9 @@ public class ElasticApmAgent {
         return logger;
     }
 
+    /**
+     * 获取要注入的transformer，使用bytebuddy 的 invokedynamic 方式
+     */
     private static AgentBuilder.Transformer.ForAdvice getTransformer(final ElasticApmInstrumentation instrumentation, final Logger logger, final ElementMatcher<? super MethodDescription> methodMatcher) {
         boolean validate = false;
         assert validate = true;
@@ -478,8 +515,8 @@ public class ElasticApmAgent {
         Advice.WithCustomMapping withCustomMapping = Advice
             .withCustomMapping()
             .with(new Advice.AssignReturned.Factory().withSuppressed(ClassCastException.class))
-            .bind(new SimpleMethodSignatureOffsetMappingFactory())
-            .bind(new AnnotationValueOffsetMappingFactory());
+            .bind(new SimpleMethodSignatureOffsetMappingFactory())//绑定自定义注解 完整方法签名
+            .bind(new AnnotationValueOffsetMappingFactory());//
         Advice.OffsetMapping.Factory<?> offsetMapping = instrumentation.getOffsetMapping();
         if (offsetMapping != null) {
             withCustomMapping = withCustomMapping.bind(offsetMapping);
@@ -678,6 +715,16 @@ public class ElasticApmAgent {
         pluginPackages2pluginClassLoaderCustomizations.clear();
     }
 
+    /**
+     * 初始化AgentBuilder
+     * @param byteBuddy byteBuddy 对象
+     * @param coreConfiguration coreConfiguration 对象
+     * @param logger logger 对象
+     * @param descriptionStrategy descriptionStrategy 对象
+     * @param premain 是否premain
+     * @param useTypePoolCache 是否使用类型池
+     * @return
+     */
     private static AgentBuilder getAgentBuilder(final ByteBuddy byteBuddy, final CoreConfiguration coreConfiguration, final Logger logger,
                                                 final AgentBuilder.DescriptionStrategy descriptionStrategy, final boolean premain,
                                                 final boolean useTypePoolCache) {
@@ -702,6 +749,7 @@ public class ElasticApmAgent {
         return new AgentBuilder.Default(byteBuddy)
             .with(RedefinitionStrategy.RETRANSFORMATION)
             // when runtime attaching, only retransform up to 100 classes at once and sleep 100ms in-between as retransformation causes a stop-the-world pause
+            //运行时附加时，一次最多只能重新转换 100 个类，中间休眠 100 毫秒，因为重新转换会导致 虚拟机 stop-the-world 发生
             .with(premain ? RedefinitionStrategy.BatchAllocator.ForTotal.INSTANCE : RedefinitionStrategy.BatchAllocator.ForFixedSize.ofSize(100))
             .with(premain ? RedefinitionStrategy.Listener.NoOp.INSTANCE : RedefinitionStrategy.Listener.Pausing.of(100, TimeUnit.MILLISECONDS))
             .with(new RedefinitionStrategy.Listener.Adapter() {

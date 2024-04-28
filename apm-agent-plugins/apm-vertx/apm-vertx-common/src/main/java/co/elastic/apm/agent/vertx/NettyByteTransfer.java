@@ -16,30 +16,3 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package co.elastic.apm.agent.vertx;
-
-import co.elastic.apm.agent.sdk.internal.util.IOUtils;
-import io.netty.buffer.ByteBuf;
-
-import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
-import java.nio.charset.CoderResult;
-
-public class NettyByteTransfer {
-
-    private static IOUtils.ByteSourceReader<ByteBuf> NETTY_BYTE_SOURCE_READER = new IOUtils.ByteSourceReader<ByteBuf>() {
-        @Override
-        public int availableBytes(ByteBuf source) {
-            return source.readableBytes();
-        }
-
-        @Override
-        public void readInto(ByteBuf source, ByteBuffer into) {
-            source.readBytes(into);
-        }
-    };
-
-    public static CoderResult decodeUtf8BytesFromTransfer(final ByteBuf src, final CharBuffer dest) {
-        return IOUtils.decodeUtf8BytesFromSource(NETTY_BYTE_SOURCE_READER, src, dest);
-    }
-}

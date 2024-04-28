@@ -16,22 +16,3 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package co.elastic.apm.agent.vertx.v3;
-
-import co.elastic.apm.agent.vertx.helper.OkHttpTestClient;
-import io.vertx.junit5.VertxExtension;
-import org.junit.jupiter.api.extension.ExtendWith;
-
-@ExtendWith(VertxExtension.class)
-public class VertxHttp2ServerTest extends VertxServerTest {
-
-    @Override
-    public OkHttpTestClient http() {
-        return super.https();
-    }
-
-    @Override
-    protected boolean useSSL() {
-        return true;
-    }
-}

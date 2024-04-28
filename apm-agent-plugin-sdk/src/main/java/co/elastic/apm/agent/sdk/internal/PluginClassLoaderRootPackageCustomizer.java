@@ -26,6 +26,7 @@ import java.util.Set;
 
 /**
  * This class must be provided at most once per {@linkplain #getPluginPackage() plugin package}.
+ * 每个插件包最多只能提供一次该类。
  */
 public abstract class PluginClassLoaderRootPackageCustomizer {
 
@@ -57,6 +58,7 @@ public abstract class PluginClassLoaderRootPackageCustomizer {
      * and classes extending {@code org.stagemonitor.configuration.ConfigurationOptionProvider}
      * will be loaded from a dedicated plugin class loader that has access to both the instrumented classes and the agent classes.
      * If the {@linkplain #getPluginPackage() plugin package} should be part of the root packages, implementations need to explicitly add it.
+     * 除使用 co.elastic.apm.agent.sdk.state.GlobalState 进行注释的类和扩展 org.stagemonitor.configuration.ConfigurationOptionProvider 的类外，所提供软件包中的所有类都将从专用的插件类加载器中加载，该加载器可同时访问仪器类和代理类。如果插件包应该是根包的一部分，则实现需要显式地添加它。
      */
     public abstract Collection<String> pluginClassLoaderRootPackages();
 

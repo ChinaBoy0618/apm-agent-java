@@ -32,6 +32,9 @@ import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+/**
+ * 插桩状态缓存类
+ */
 public final class InstrumentationStats {
 
     private final Set<ElasticApmInstrumentation> allInstrumentations = new HashSet<>();
